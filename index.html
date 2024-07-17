@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מחשבון עמלות גמל והשתלמות - רשימה חודשית</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5a623;
+            --background-color: #f0f4f8;
+            --text-color: #333;
+        }
+        body {
+            font-family: 'Heebo', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            padding: 20px;
+        }
+        .container {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 30px;
+            width: 100%;
+            max-width: 600px;
+            transition: all 0.3s ease;
+        }
+        .container:hover {
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+        }
+        h1, h2 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--text-color);
+            font-weight: bold;
+        }
+        select, input, button {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+        select:focus, input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+        }
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #3a7bc8;
+        }
+        #monthlyReportButton {
+            background-color: var(--secondary-color);
+            margin-top: 20px;
+        }
+        #monthlyReportButton:hover {
+            background-color: #e09612;
+        }
+        #clearDataButton {
+            background-color: #dc3545;
+            margin-top: 20px;
+        }
+        #clearDataButton:hover {
+            background-color: #c82333;
+        }
+        #clientList, #monthlyReport {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .client-item {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        .hidden {
+            display: none;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: right;
+        }
+        th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>מחשבון עמלות גמל והשתלמות</h1>
+        <label for="clientName">שם הלקוח:</label>
+        <input type="text" id="clientName" placeholder="הכנס שם לקוח">
+        <label for="company">חברת ניהול:</label>
+        <select id="company">
+            <option value="harel">הראל</option>
+            <option value="migdal">מגדל</option>
+            <option value="clal">כלל</option>
+            <option value="phoenix">הפניקס</option>
+            <option value="more">מור</option>
+            <option value="yelin">ילין לפידות</option>
+        </select>
+        <label for="amount">סכום הניוד:</label>
+        <input type="number" id="amount" placeholder="הכנס סכום">
+        <button onclick="addClient()">הוסף לקוח לרשימה</button>
+        <div id="clientList"></div>
+        <button id="monthlyReportButton" onclick="generateMonthlyReport()">הפק דוח חודשי</button>
+        <div id="monthlyReport" class="hidden"></div>
+        <button id="clearDataButton" onclick="clearAllData()">נקה את כל הנתונים</button>
+    </div>
+
+    <script>
+        const companies = {
+            harel: { name: "הראל", scope: 6000, ongoing: 250, title: "הראל - עמלות עבור ניוד בקרן השתלמות וקופות גמל" },
+            migdal: { name: "מגדל", scope: 7000, ongoing: 250, title: "מגדל - עמלות ניוד גמל והשתלמות" },
+            clal: { name: "כלל", scope: 7000, ongoing: 250, title: "כלל - עמלות ניוד גמל והשתלמות" },
+            phoenix: { name: "הפניקס", scope: 6500, ongoing: 250, title: "הפניקס - עמלות ניוד גמל והשתלמות" },
+            more: { name: "מור", scope: 4000, ongoing: 250, title: "מור - עמלות ניוד גמל והשתלמות" },
+            yelin: { name: "ילין לפידות", scope: 4000, ongoing: 250, title: "ילין לפידות - עמלות ניוד גמל והשתלמות" }
+        };
+
+        const formatter = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS' });
+        let monthlyClients = JSON.parse(localStorage.getItem('monthlyClients')) || [];
+
+        function addClient() {
+            const clientName = document.getElementById('clientName').value.trim();
+            const company = document.getElementById('company').value;
+            const amount = Number(document.getElementById('amount').value);
+            const baseAmount = 1000000;
+
+            if (amount <= 0) {
+                alert('אנא הכנס סכום חיובי');
+                return;
+            }
+
+            if (!clientName) {
+                alert('אנא הכנס שם לקוח');
+                return;
+            }
+
+            const scopeCommission = (amount / baseAmount) * companies[company].scope;
+            const monthlyCommission = (amount / baseAmount) * companies[company].ongoing;
+
+            const client = {
+                name: clientName,
+                company: companies[company].name,
+                amount: amount,
+                scopeCommission: scopeCommission,
+                monthlyCommission: monthlyCommission
+            };
+
+            monthlyClients.push(client);
+            localStorage.setItem('monthlyClients', JSON.stringify(monthlyClients));
+
+            updateClientList();
+            clearInputs();
+        }
+
+        function updateClientList() {
+            const clientList = document.getElementById('clientList');
+            clientList.innerHTML = '';
+            monthlyClients.forEach((client, index) => {
+                const clientItem = document.createElement('div');
+                clientItem.classList.add('client-item');
+                clientItem.innerHTML = `
+                    <p><strong>${client.name}</strong> - ${client.company}</p>
+                    <p>סכום: ${formatter.format(client.amount)}</p>
+                    <p>היקף: ${formatter.format(client.scopeCommission)}, נפרעים: ${formatter.format(client.monthlyCommission)}</p>
+                    <button onclick="removeClient(${index})">הסר</button>
+                `;
+                clientList.appendChild(clientItem);
+            });
+        }
+
+        function removeClient(index) {
+            monthlyClients.splice(index, 1);
+            localStorage.setItem('monthlyClients', JSON.stringify(monthlyClients));
+            updateClientList();
+        }
+
+        function clearInputs() {
+            document.getElementById('clientName').value = '';
+            document.getElementById('amount').value = '';
+        }
+
+        function generateMonthlyReport() {
+            if (monthlyClients.length === 0) {
+                alert('אין נתונים לדוח חודשי');
+                return;
+            }
+
+            let totalAmount = 0;
+            let totalScopeCommission = 0;
+            let totalMonthlyCommission = 0;
+
+            const reportTable = document.createElement('table');
+            reportTable.innerHTML = `
+                <tr>
+                    <th>שם לקוח</th>
+                    <th>חברה</th>
+                    <th>סכום ניוד</th>
+                    <th>עמלת היקף</th>
+                    <th>עמלת נפרעים</th>
+                </tr>
+            `;
+
+            monthlyClients.forEach(client => {
+                const row = reportTable.insertRow();
+                row.innerHTML = `
+                    <td>${client.name}</td>
+                    <td>${client.company}</td>
+                    <td>${formatter.format(client.amount)}</td>
+                    <td>${formatter.format(client.scopeCommission)}</td>
+                    <td>${formatter.format(client.monthlyCommission)}</td>
+                `;
+                totalAmount += client.amount;
+                totalScopeCommission += client.scopeCommission;
+                totalMonthlyCommission += client.monthlyCommission;
+            });
+
+            const totalRow = reportTable.insertRow();
+            totalRow.innerHTML = `
+                <td colspan="2"><strong>סה"כ</strong></td>
+                <td><strong>${formatter.format(totalAmount)}</strong></td>
+                <td><strong>${formatter.format(totalScopeCommission)}</strong></td>
+                <td><strong>${formatter.format(totalMonthlyCommission)}</strong></td>
+            `;
+
+            const monthlyReport = document.getElementById('monthlyReport');
+            monthlyReport.innerHTML = '';
+            monthlyReport.appendChild(reportTable);
+            monthlyReport.classList.remove('hidden');
+
+            const downloadButton = document.createElement('button');
+            downloadButton.textContent = 'הורד דוח Excel';
+            downloadButton.onclick = function() {
+                exportToExcel(monthlyClients);
+            };
+            monthlyReport.appendChild(downloadButton);
+        }
+
+        function exportToExcel(clients) {
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+            csvContent += "שם לקוח,חברה,סכום ניוד,עמלת היקף,עמלת נפרעים\n";
+
+            clients.forEach(client => {
+                csvContent += `${client.name},${client.company},${client.amount},${client.scopeCommission},${client.monthlyCommission}\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "דוח_עמלות_חודשי.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function clearAllData() {
+            if (confirm('האם אתה בטוח שברצונך למחוק את כל הנתונים? פעולה זו אינה הפיכה.')) {
+                localStorage.removeItem('monthlyClients');
+                monthlyClients = [];
+                updateClientList();
+                document.getElementById('monthlyReport').classList.add('hidden');
+                alert('כל הנתונים נמחקו בהצלחה.');
+            }
+        }
+
+        // אתחול הדף
+        updateClientList();
+    </script>
+</body>
+</html>
